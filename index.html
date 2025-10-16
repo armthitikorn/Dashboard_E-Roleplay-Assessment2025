@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Dashboard | ไฟล์เสียง Roleplay</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet" />
+    
+    <style>
+        body {
+            background-color: #f4f7f6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .container-main {
+            padding-top: 30px;
+            padding-bottom: 30px;
+            flex-grow: 1;
+        }
+        /* Style สำหรับ Login Page */
+        #loginPage {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        }
+        .login-card {
+            max-width: 400px;
+            width: 90%;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Style สำหรับ Dashboard Card */
+        .submission-card {
+            border-left: 4px solid #0d6efd;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        .submission-card:hover {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        .audio-player {
+            background-color: #e9ecef;
+            border-radius: 5px;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loginPage">
+        <div class="card login-card">
+            <div class="card-body">
+                <h4 class="card-title text-center mb-4"><i class="bi bi-person-lock me-2"></i>เข้าสู่ระบบ Dashboard</h4>
+                <div id="loginMessage" class="alert alert-danger" style="display:none;"></div>
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" class="form-control" id="username" value="Trainer" required>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" value="Tn123456" required>
+                </div>
+                <div class="d-grid">
+                    <button id="loginBtn" class="btn btn-primary btn-lg">เข้าสู่ระบบ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="mainDashboard" class="container-main" style="display:none;">
+        <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top shadow-sm mb-4">
+            <div class="container-fluid">
+                <a class="navbar-brand text-primary" href="#"><i class="bi bi-bar-chart-fill me-2"></i>Roleplay Dashboard</a>
+                <span class="navbar-text me-3">
+                    <i class="bi bi-person-check-fill me-1"></i> ยินดีต้อนรับ, Trainer
+                </span>
+                <button class="btn btn-outline-danger" id="logoutBtn"><i class="bi bi-box-arrow-right"></i> ออกจากระบบ</button>
+            </div>
+        </nav>
+
+        <h3 class="mb-3"><i class="bi bi-search me-2"></i>ค้นหาและกรองข้อมูล</h3>
+
+        <div class="card p-3 mb-4 shadow-sm">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label for="startDate" class="form-label">จากวันที่ (Start Date)</label>
+                    <input type="date" class="form-control" id="startDate">
+                </div>
+                <div class="col-md-5">
+                    <label for="endDate" class="form-label">ถึงวันที่ (End Date)</label>
+                    <input type="date" class="form-control" id="endDate">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button id="filterBtn" class="btn btn-success"><i class="bi bi-funnel-fill me-1"></i> กรองข้อมูล</button>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="mt-5 mb-3"><i class="bi bi-card-list me-2"></i>รายการไฟล์เสียง</h3>
+        <p class="text-muted" id="totalCount">กำลังรอการค้นหา...</p>
+
+        <div id="loadingIndicator" class="text-center my-5" style="display:none;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">กำลังดึงรายการไฟล์เสียง...</p>
+        </div>
+
+        <div id="submissionsList" class="row g-4">
+            </div>
+
+        <div id="messageBox" class="alert alert-danger mt-5" style="display:none;"></div>
+        
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script type="module">
+        // --- Config & Security ---
+        // 🚨 Note: For real applications, NEVER store credentials in frontend code. Use server-side auth (like Supabase Auth).
+        const VALID_USER = 'Trainer';
+        const VALID_PASS = 'Tn123456';
+        const AUTH_KEY = 'roleplay_dashboard_auth';
+
+        // --- Supabase Imports & Config (ใช้ค่าเดิม) ---
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+        const supabaseUrl = 'https://wzwyotzzxycqfwercakh.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6d3lvdHp6eHljcWZ3ZXJjYWtoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwNTg3MTMsImV4cCI6MjA3MjYzNDcxM30.lgiAf9oBUqsaWGb3u_80wuoKAODQHE_lIBxpGumhrno'; 
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        // --- DOM Elements ---
+        const loginPage = document.getElementById('loginPage');
+        const mainDashboard = document.getElementById('mainDashboard');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const loginMessage = document.getElementById('loginMessage');
+        const filterBtn = document.getElementById('filterBtn');
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        const submissionsList = document.getElementById('submissionsList');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const totalCount = document.getElementById('totalCount');
+        const messageBox = document.getElementById('messageBox');
+        
+        // --- Utility ---
+        function showMessage(text, type = 'danger') {
+            messageBox.textContent = text;
+            messageBox.className = `alert mt-5 alert-${type}`;
+            messageBox.style.display = 'block';
+        }
+
+        function formatDateTime(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString('th-TH', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+        
+        // --- Authentication Logic ---
+
+        function checkAuth() {
+            if (localStorage.getItem(AUTH_KEY) === 'authenticated') {
+                showDashboard();
+            } else {
+                showLogin();
+            }
+        }
+
+        function showLogin() {
+            loginPage.style.display = 'flex';
+            mainDashboard.style.display = 'none';
+        }
+
+        function showDashboard() {
+            loginPage.style.display = 'none';
+            mainDashboard.style.display = 'block';
+            
+            // ตั้งค่าวันที่เริ่มต้นให้เป็นวันนี้ - 30 วัน และวันสิ้นสุดเป็นวันนี้
+            if (!startDateInput.value && !endDateInput.value) {
+                const today = new Date();
+                const pastDate = new Date();
+                pastDate.setDate(today.getDate() - 30);
+                
+                // แปลงเป็น YYYY-MM-DD
+                startDateInput.value = pastDate.toISOString().split('T')[0];
+                endDateInput.value = today.toISOString().split('T')[0];
+
+                // โหลดข้อมูลครั้งแรกทันที
+                loadSubmissions();
+            }
+        }
+
+        function handleLogin() {
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value;
+
+            if (user === VALID_USER && pass === VALID_PASS) {
+                localStorage.setItem(AUTH_KEY, 'authenticated');
+                loginMessage.style.display = 'none';
+                showDashboard();
+            } else {
+                loginMessage.textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+                loginMessage.style.display = 'block';
+            }
+        }
+        
+        function handleLogout() {
+            localStorage.removeItem(AUTH_KEY);
+            showLogin();
+        }
+
+        // --- Core Data Loading Logic ---
+
+        /**
+         * ดึงข้อมูลทั้งหมดจากตาราง submissions โดยมีตัวกรองวันที่
+         */
+        async function loadSubmissions() {
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            
+            if (!startDate || !endDate) {
+                showMessage("กรุณาระบุ 'จากวันที่' และ 'ถึงวันที่' เพื่อค้นหา", "warning");
+                submissionsList.innerHTML = '<p class="col-12 text-center text-muted">กรุณาเลือกช่วงวันที่เพื่อดูข้อมูล</p>';
+                totalCount.textContent = 'กรุณาเลือกช่วงวันที่เพื่อดูข้อมูล';
+                return;
+            }
+
+            loadingIndicator.style.display = 'block';
+            messageBox.style.display = 'none';
+            submissionsList.innerHTML = ''; // เคลียร์รายการเก่า
+
+            // ปรับวันที่สิ้นสุดให้เป็น 23:59:59 ของวันนั้น เพื่อให้ครอบคลุมทั้งวัน
+            const endDateTime = endDate + 'T23:59:59.999Z';
+            
+            // เริ่มการดึงข้อมูล
+            const { data, error } = await supabase
+                .from('submissions')
+                .select('*')
+                // กรองข้อมูลตามช่วงวันที่
+                .gte('created_at', startDate) // Greater than or equal to start date (00:00:00)
+                .lte('created_at', endDateTime) // Less than or equal to end date (23:59:59)
+                .order('created_at', { ascending: false }); 
+
+            loadingIndicator.style.display = 'none';
+
+            if (error) {
+                console.error('Error fetching submissions:', error);
+                showMessage(`เกิดข้อผิดพลาดในการดึงข้อมูล: ${error.message}. ตรวจสอบ RLS Policy!`);
+                totalCount.textContent = 'ไม่สามารถโหลดข้อมูลได้';
+                return;
+            }
+            
+            renderSubmissions(data);
+        }
+
+        /**
+         * แสดงข้อมูลไฟล์เสียงที่ดึงมาในรูปแบบ Card
+         */
+        function renderSubmissions(submissions) {
+            totalCount.textContent = `พบรายการไฟล์เสียงที่ส่งมาแล้วทั้งหมด: ${submissions.length} รายการ`;
+            
+            if (submissions.length === 0) {
+                submissionsList.innerHTML = '<p class="col-12 text-center text-muted">ไม่พบรายการไฟล์เสียงในช่วงวันที่ที่เลือก</p>';
+                return;
+            }
+
+            submissions.forEach(submission => {
+                const submissionTime = formatDateTime(submission.created_at);
+                
+                const cardHtml = `
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="card submission-card h-100">
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="card-title text-primary">${submission.name || 'ไม่ระบุชื่อ'}</h5>
+                                <h6 class="card-subtitle mb-2 text-muted">
+                                    <span class="badge bg-info">${submission.user_id ? submission.user_id.substring(0, 8) : 'N/A'}...</span>
+                                    <span class="badge bg-warning text-dark">Part ${submission.part_number} | ข้อที่ ${submission.question_number}</span>
+                                </h6>
+                                <p class="card-text flex-grow-1 mt-2">
+                                    <strong><i class="bi bi-chat-dots me-1"></i> คำถาม:</strong> ${submission.question_text}<br>
+                                </p>
+                                
+                                <div class="audio-player mt-3">
+                                    <label class="form-label mb-1">ไฟล์เสียงตอบกลับ:</label>
+                                    <audio controls class="w-100">
+                                        <source src="${submission.audio_url}" type="audio/webm">
+                                        เบราว์เซอร์ของคุณไม่รองรับการเล่นไฟล์เสียง
+                                    </audio>
+                                </div>
+                                <small class="d-block mt-2 text-secondary text-end"><i class="bi bi-clock me-1"></i> ${submissionTime}</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                submissionsList.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        }
+
+        // --- Event Listeners and Initialization ---
+        
+        loginBtn.addEventListener('click', handleLogin);
+        logoutBtn.addEventListener('click', handleLogout);
+        filterBtn.addEventListener('click', loadSubmissions);
+        
+        // เมื่อโหลดหน้าเสร็จ ให้ตรวจสอบสถานะการล็อกอิน
+        document.addEventListener('DOMContentLoaded', checkAuth);
+    </script>
+</body>
+</html>
