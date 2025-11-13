@@ -95,16 +95,24 @@
         <h3 class="mb-3"><i class="bi bi-search me-2"></i>ค้นหาและกรองข้อมูล</h3>
 
         <div class="card p-3 mb-4 shadow-sm">
-            <div class="row g-3 align-items-end">
+            <div class="row g-3">
+                
                 <div class="col-md-3">
                     <label for="startDate" class="form-label">จากวันที่ (Start Date)</label>
                     <input type="date" class="form-control" id="startDate">
                 </div>
+                
                 <div class="col-md-3">
                     <label for="endDate" class="form-label">ถึงวันที่ (End Date)</label>
                     <input type="date" class="form-control" id="endDate">
                 </div>
-                <div class="col-md-4">
+
+                <div class="col-md-3">
+                    <label for="nameFilter" class="form-label">ค้นหาด้วยชื่อ TSR</label>
+                    <input type="text" class="form-control" id="nameFilter" placeholder="พิมพ์ชื่อ...">
+                </div>
+
+                <div class="col-md-3">
                     <label for="userGroupFilter" class="form-label">กลุ่มผู้เข้าทำแบบทดสอบ</label>
                     <select class="form-select" id="userGroupFilter">
                         <option value="">-- เลือกกลุ่มทั้งหมด --</option>
@@ -112,10 +120,13 @@
                         <option value="NewTSRsOnboarding">กลุ่ม New TSRs On boarding</option>
                         <option value="NewTSRs">กลุ่ม New TSRs</option>
                         <option value="ExistingTSRs">กลุ่ม TSRs existing</option>
-                        </select>
+                    </select>
                 </div>
-                <div class="col-md-2 d-grid">
-                    <button id="filterBtn" class="btn btn-success"><i class="bi bi-funnel-fill me-1"></i> กรองข้อมูล</button>
+            </div>
+            
+            <div class="row mt-3">
+                <div class="col-12 d-grid">
+                    <button id="filterBtn" class="btn btn-success btn-lg"><i class="bi bi-funnel-fill me-1"></i> กรองข้อมูล</button>
                 </div>
             </div>
             </div>
@@ -161,8 +172,9 @@
         const filterBtn = document.getElementById('filterBtn');
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
-        // ✅ DOM ใหม่สำหรับ Drop Down กรองกลุ่ม
         const userGroupFilter = document.getElementById('userGroupFilter'); 
+        // ✅ DOM ใหม่สำหรับช่องกรองชื่อ
+        const nameFilterInput = document.getElementById('nameFilter');
         const submissionsList = document.getElementById('submissionsList');
         const loadingIndicator = document.getElementById('loadingIndicator');
         const totalCount = document.getElementById('totalCount');
@@ -242,13 +254,13 @@
         // --- ตรรกะการโหลดข้อมูลหลัก (Main Data Logic) ---
 
         /**
-         * ดึงข้อมูลทั้งหมดจากตาราง submissions โดยมีตัวกรองวันที่และกลุ่ม
+         * ดึงข้อมูลทั้งหมดจากตาราง submissions โดยมีตัวกรองวันที่ กลุ่ม และชื่อ
          */
         async function loadSubmissions() {
             const startDate = startDateInput.value;
             const endDate = endDateInput.value;
-            // ✅ ดึงค่ากลุ่มที่เลือก
             const selectedGroup = userGroupFilter.value;
+            const searchName = nameFilterInput.value.trim();
             
             if (!startDate || !endDate) {
                 showMessage("กรุณาระบุ 'จากวันที่' และ 'ถึงวันที่' เพื่อค้นหา", "warning");
@@ -274,9 +286,15 @@
 
             // ✅ เพิ่มเงื่อนไขการกรองกลุ่ม (ถ้ามีการเลือกกลุ่มที่ไม่ใช่ค่าว่าง)
             if (selectedGroup) {
-                // ต้องมั่นใจว่าชื่อคอลัมน์ใน Supabase คือ 'user_group'
                 query = query.eq('user_group', selectedGroup);
             }
+            
+            // ✅ เพิ่มเงื่อนไขการกรองชื่อ (ถ้ามีการป้อนชื่อ)
+            if (searchName) {
+                // ใช้ .ilike เพื่อค้นหาบางส่วนและไม่คำนึงถึงตัวพิมพ์เล็ก-ใหญ่
+                query = query.ilike('name', `%${searchName}%`);
+            }
+
 
             // เพิ่มการจัดเรียง
             query = query.order('created_at', { ascending: false }); 
@@ -345,8 +363,7 @@
         
         loginBtn.addEventListener('click', handleLogin);
         logoutBtn.addEventListener('click', handleLogout);
-        // Event Listener สำหรับปุ่มกรองจะเรียก loadSubmissions ซึ่งตอนนี้รองรับการกรองกลุ่มแล้ว
-        filterBtn.addEventListener('click', loadSubmissions); 
+        filterBtn.addEventListener('click', loadSubmissions);
         
         // เมื่อโหลดหน้าเสร็จ ให้ตรวจสอบสถานะการล็อกอิน
         document.addEventListener('DOMContentLoaded', checkAuth);
